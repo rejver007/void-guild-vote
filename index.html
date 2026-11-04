@@ -156,12 +156,12 @@
     </div>
   </section>
 
-  <footer>One vote per browser. Clicking another logo moves your vote to it.</footer>
+  <footer>One vote per browser. Clicking another logo moves your vote to it. Results refresh every few seconds.</footer>
 </div>
 
 <script type="module">
 import { SETS, KEEP, LOGOS, ALL } from "./logos.js";
-import { firebaseConfig } from "./firebase-config.js";
+import { API_BASE } from "./api-config.js";
 
 const $ = (s) => document.querySelector(s);
 const state = { counts: {}, total: 0, mine: null, uid: null, live: false, busy: false };
@@ -241,75 +241,73 @@ function notice(text) {
   n.textContent = text || "";
 }
 
-let vote = async () => {};
 render();
 
-if (!firebaseConfig) {
-  setConn("Voting not open yet", false);
-  notice("Voting opens as soon as the vote counter is connected. You can look through the logos in the meantime.");
-} else {
-  start().catch((e) => {
-    console.error(e);
-    setConn("Offline", false);
-    notice("Couldn't reach the vote counter. Check your connection and reload the page.");
-  });
-}
-
-async function start() {
-  const V = "10.12.2";
-  const [{ initializeApp }, auth, fs] = await Promise.all([
-    import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
-    import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`),
-    import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`),
-  ]);
-  const app = initializeApp(firebaseConfig);
-  const a = auth.getAuth(app);
-  const db = fs.getFirestore(app);
-
-  await auth.signInAnonymously(a);
-  const uid = await new Promise((res) => auth.onAuthStateChanged(a, (u) => u && res(u.uid)));
-  state.uid = uid;
-
-  fs.onSnapshot(fs.collection(db, "votes"), (snap) => {
-    const counts = {};
-    let total = 0;
-    let mine = null;
-    snap.forEach((d) => {
-      const c = d.data().choice;
-      if (!byId[c]) return;
-      counts[c] = (counts[c] || 0) + 1;
-      total++;
-      if (d.id === uid) mine = c;
-    });
-    Object.assign(state, { counts, total, live: true });
-    if (!state.busy) state.mine = mine;
-    setConn("Voting open", true);
-    notice("");
-    render();
-  }, (err) => {
-    console.error(err);
-    setConn("Offline", false);
-    notice("Lost the connection to the vote counter. Reload the page to try again.");
-  });
-
-  vote = async (id) => {
-    if (!state.live || state.busy || state.mine === id) return;
-    const prev = state.mine;
-    state.busy = true;
-    state.mine = id;
-    render();
-    try {
-      await fs.setDoc(fs.doc(db, "votes", uid), { choice: id, updatedAt: fs.serverTimestamp() });
-    } catch (e) {
-      console.error(e);
-      state.mine = prev;
-      notice("Your vote didn't save. Reload the page and try again.");
-    } finally {
-      state.busy = false;
-      render();
+// Each browser keeps a random voter id; voting again just moves that vote.
+function voterId() {
+  try {
+    let id = localStorage.getItem("void-voter");
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem("void-voter", id);
     }
-  };
+    return id;
+  } catch {
+    return (window.__voter ||= crypto.randomUUID());
+  }
 }
+const voter = voterId();
+
+function apply(data) {
+  Object.assign(state, { counts: data.counts || {}, total: data.total || 0, live: true });
+  if (!state.busy) state.mine = data.mine;
+  setConn("Voting open", true);
+  notice("");
+  render();
+}
+
+async function refresh() {
+  try {
+    const r = await fetch(`${API_BASE}/api/votes?voter=${encodeURIComponent(voter)}`, { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    apply(await r.json());
+  } catch (e) {
+    console.error(e);
+    state.live = false;
+    setConn("Offline", false);
+    notice("Couldn't reach the vote counter. It will keep retrying; you can also reload the page.");
+    render();
+  }
+}
+
+async function vote(id) {
+  if (!state.live || state.busy || state.mine === id) return;
+  const prev = state.mine;
+  state.busy = true;
+  state.mine = id;
+  render();
+  try {
+    const r = await fetch(`${API_BASE}/api/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ voter, choice: id }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || r.status);
+    state.busy = false;
+    apply(data);
+  } catch (e) {
+    console.error(e);
+    state.busy = false;
+    state.mine = prev;
+    notice(`Your vote didn't save (${e.message}). Try again in a moment.`);
+    render();
+  }
+}
+
+refresh();
+setInterval(() => document.hidden || refresh(), 5000);
+document.addEventListener("visibilitychange", () => document.hidden || refresh());
 </script>
 </body>
 </html>

@@ -2,19 +2,24 @@
 
 A one-page vote for the new VOID guild mark in Cabal Online: 30 logo variations plus a "Keep the current logo" option. Each visitor gets one vote and can change it at any time. A live results table sits at the bottom of the page.
 
-The site is static and hosted on GitHub Pages. Votes are stored in Firebase Cloud Firestore (free Spark plan), with one document per visitor keyed by an anonymous sign-in id.
+- **Page:** static files in this repo, served by GitHub Pages at <https://rejver007.github.io/void-guild-vote/>.
+- **Vote counter:** [`server/server.js`](server/server.js), a dependency-free Node server deployed on Coolify from the [`Dockerfile`](Dockerfile). Votes are kept in `/data/votes.json`, so mount a volume at `/data`.
+- **Wiring:** [`api-config.js`](api-config.js) holds the counter's URL. The server only answers browsers coming from the origins in `ALLOWED_ORIGINS` (default: the GitHub Pages site and `http://localhost:8765`).
 
-## Connecting the vote counter
+## Running locally
 
-1. Create a project at <https://console.firebase.google.com> (Google Analytics is not needed).
-2. **Build > Authentication > Get started > Sign-in method:** enable **Anonymous**.
-3. **Authentication > Settings > Authorized domains:** add `rejver007.github.io`.
-4. **Build > Firestore Database > Create database:** pick any location and start in **production mode**.
-5. **Firestore > Rules:** replace everything with the contents of [`firestore.rules`](firestore.rules) and click **Publish**.
-6. **Project settings > Your apps > Web (`</>`):** register an app, copy the `firebaseConfig` object, and paste it into [`firebase-config.js`](firebase-config.js) in place of `null`.
+```bash
+node server/server.js
+```
+
+```bash
+python -m http.server 8765
+```
+
+Then open <http://localhost:8765>.
 
 ## Limits
 
-One vote per browser. Someone who opens the page in another browser, on another device, or in a private window gets another vote. For a guild poll that's usually fine.
+One vote per browser. Someone who opens the page in another browser, on another device, or in a private window gets another vote. Each IP address can save at most 20 votes per minute.
 
-To reset the vote, delete the `votes` collection in the Firestore console.
+To reset the vote, delete `/data/votes.json` in the container and restart it.
