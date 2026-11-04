@@ -33,6 +33,14 @@ try {
   db = JSON.parse(fs.readFileSync(FILE, "utf8"));
 } catch {
   db = { salt: crypto.randomBytes(16).toString("hex"), ballots: {} };
+  // Carry over votes from the first, one-vote-per-browser version.
+  try {
+    const old = JSON.parse(fs.readFileSync(path.join(DATA_DIR, "votes.json"), "utf8"));
+    for (const [voter, v] of Object.entries(old)) {
+      if (!CHOICES.has(v.choice)) continue;
+      db.ballots[crypto.randomUUID()] = { picks: { [v.choice]: 1 }, ip: "legacy", device: "legacy:" + voter, voters: [voter], at: v.at };
+    }
+  } catch {}
 }
 
 const byVoter = new Map();
