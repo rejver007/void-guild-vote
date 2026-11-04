@@ -70,12 +70,9 @@
   .card {
     position: relative; display: grid; gap: 10px; padding: 10px 10px 12px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
-    color: inherit; font: inherit; text-align: left; cursor: pointer;
-    transition: border-color .15s, transform .15s, background .15s;
+    transition: border-color .15s, background .15s;
   }
-  .card:hover:not(:disabled) { border-color: #3a438a; transform: translateY(-2px); }
-  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  .card:disabled { cursor: not-allowed; }
+  .card:hover { border-color: #3a438a; }
   .card .art { position: relative; }
   .card .art .big { width: 100%; height: auto; aspect-ratio: 1; border-radius: 10px; }
   .card .art .real {
@@ -86,12 +83,19 @@
   .card .name { font-weight: 600; font-size: 14px; line-height: 1.25; min-width: 0; }
   .card .num { font: 500 12px/1 var(--mono); color: var(--muted); display: block; margin-bottom: 3px; }
   .card .count { font: 500 13px/1 var(--mono); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .card .pick {
-    display: block; text-align: center; padding: 8px; border-radius: 8px;
-    border: 1px solid var(--line); font: 600 13px/1 var(--body); color: var(--text); background: var(--panel-2);
+  .ctrl { display: grid; grid-template-columns: 40px 1fr 40px; align-items: center; gap: 6px; }
+  .ctrl button {
+    height: 36px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2);
+    color: var(--text); font: 600 20px/1 var(--body); cursor: pointer;
   }
+  .ctrl button:hover:not(:disabled) { border-color: var(--accent); }
+  .ctrl button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ctrl button:disabled { opacity: .35; cursor: not-allowed; }
+  .ctrl .plus:not(:disabled) { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .pips { display: flex; justify-content: center; gap: 6px; }
+  .pips i { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid #3a438a; }
+  .pips i.on { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px #8c9bff88; }
   .card.mine { border-color: var(--accent); background: #12173a; box-shadow: 0 0 0 1px var(--accent), 0 0 28px #8c9bff33; }
-  .card.mine .pick { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 
   .keep { grid-template-columns: 150px 1fr; align-items: center; gap: 18px; padding: 12px; max-width: 560px; }
   .keep .art .big { width: 150px; }
@@ -122,7 +126,7 @@
     .keep .art .big { width: 110px; }
     .card .art .real { width: 40px; height: 40px; }
   }
-  @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover:not(:disabled) { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
 </style>
 </head>
 <body>
@@ -130,18 +134,20 @@
   <header>
     <div class="eyebrow"><img src="logos/keep_53.png" alt="">VOID · Cabal Online guild vote</div>
     <h1>Choose our new guild mark</h1>
-    <p class="lede">Pick one logo, or vote to keep the current one. You get one vote and can change it any time. The small icon in each corner is the real 53&nbsp;px size you'll see in game.</p>
+    <p class="lede">You have 3 votes. Put all 3 on one logo or spread them out, and use + and − to change them any time. "Keep the current logo" counts as a choice too. The small icon in each corner is the real 53&nbsp;px size you'll see in game.</p>
     <div class="status" aria-live="polite">
       <div><span class="k">Status</span><span class="v" id="conn"><span class="dot"></span>Connecting…</span></div>
-      <div><span class="k">Your vote</span><span class="v" id="myvote">None yet</span></div>
+      <div><span class="k">Votes left</span><span class="v" id="left">3 of 3</span></div>
+      <div><span class="k">Your votes</span><span class="v" id="myvote">None yet</span></div>
       <div class="spacer"></div>
-      <div><span class="k">Total votes</span><span class="v" id="total">0</span></div>
+      <div><span class="k">Voters</span><span class="v" id="voters">0</span></div>
+      <div><span class="k">Votes cast</span><span class="v" id="total">0</span></div>
     </div>
     <p class="notice" id="notice" hidden></p>
   </header>
 
   <section id="current">
-    <div class="sec-head"><h2>Current logo</h2><p>Happy with what we have? Vote for this.</p></div>
+    <div class="sec-head"><h2>Current logo</h2><p>Happy with what we have? Put your votes here.</p></div>
   </section>
 
   <div id="sets"></div>
@@ -156,7 +162,7 @@
     </div>
   </section>
 
-  <footer>One vote per browser. Clicking another logo moves your vote to it. Results refresh every few seconds.</footer>
+  <footer>One ballot per person. Opening the page in another browser or a private window on the same PC and internet connection shows the same ballot. Results refresh every few seconds.</footer>
 </div>
 
 <script type="module">
@@ -164,34 +170,34 @@ import { SETS, KEEP, LOGOS, ALL } from "./logos.js";
 import { API_BASE } from "./api-config.js";
 
 const $ = (s) => document.querySelector(s);
-const state = { counts: {}, total: 0, mine: null, uid: null, live: false, busy: false };
+const state = { counts: {}, total: 0, voters: 0, mine: {}, left: 3, per: 3, live: false, busy: false };
 const setTitle = Object.fromEntries(SETS.map((s) => [s.key, s.title]));
 setTitle.current = "Current";
 const label = (o) => (o.id === "keep" ? o.name : `#${Number(o.id)} ${o.name}`);
-const byId = Object.fromEntries(ALL.map((o) => [o.id, o]));
 
 function card(o, extra = "") {
-  const b = document.createElement("button");
-  b.type = "button";
-  b.className = "card " + extra;
-  b.id = "opt-" + o.id;
-  b.dataset.id = o.id;
-  b.disabled = true;
-  b.innerHTML = `
+  const el = document.createElement("article");
+  el.className = "card " + extra;
+  el.id = "opt-" + o.id;
+  el.innerHTML = `
     <div class="art">
-      <img class="big" src="logos/${o.id}.png" alt="" loading="lazy" width="320" height="320">
+      <img class="big" src="logos/${o.id}.png" alt="${label(o)}" loading="lazy" width="320" height="320">
       <img class="real" src="logos/${o.id}_53.png" alt="" width="53" height="53" title="Real in-game size">
     </div>
     <div class="side">
       <div class="meta">
         <div class="name"><span class="num">${o.id === "keep" ? "Current" : "#" + Number(o.id)}</span>${o.name}</div>
-        <span class="count" data-count>0</span>
+        <span class="count" data-count>0 votes</span>
       </div>
-      <span class="pick" data-pick>Vote</span>
+      <div class="ctrl">
+        <button type="button" class="minus" id="minus-${o.id}" aria-label="Remove a vote from ${label(o)}" disabled>−</button>
+        <span class="pips" data-pips></span>
+        <button type="button" class="plus" id="plus-${o.id}" aria-label="Add a vote to ${label(o)}" disabled>+</button>
+      </div>
     </div>`;
-  b.setAttribute("aria-label", `Vote for ${label(o)}`);
-  b.addEventListener("click", () => vote(o.id));
-  return b;
+  el.querySelector(".minus").addEventListener("click", () => vote(o.id, -1));
+  el.querySelector(".plus").addEventListener("click", () => vote(o.id, 1));
+  return el;
 }
 
 $("#current").append(card(KEEP, "keep"));
@@ -203,28 +209,35 @@ for (const s of SETS) {
 }
 
 function render() {
+  const ready = state.live && !state.busy;
   for (const o of ALL) {
     const el = document.getElementById("opt-" + o.id);
     const n = state.counts[o.id] || 0;
+    const m = state.mine[o.id] || 0;
     el.querySelector("[data-count]").textContent = n === 1 ? "1 vote" : `${n} votes`;
-    const mine = state.mine === o.id;
-    el.classList.toggle("mine", mine);
-    el.querySelector("[data-pick]").textContent = mine ? "Your vote" : "Vote";
-    el.disabled = !state.live || state.busy;
-    el.setAttribute("aria-pressed", mine ? "true" : "false");
+    el.classList.toggle("mine", m > 0);
+    const pips = el.querySelector("[data-pips]");
+    pips.innerHTML = Array.from({ length: state.per }, (_, i) => `<i class="${i < m ? "on" : ""}"></i>`).join("");
+    pips.setAttribute("aria-label", `Your votes on this logo: ${m}`);
+    el.querySelector(".plus").disabled = !ready || state.left <= 0;
+    el.querySelector(".minus").disabled = !ready || m <= 0;
   }
+  $("#left").textContent = `${state.left} of ${state.per}`;
+  $("#voters").textContent = state.voters;
   $("#total").textContent = state.total;
-  $("#myvote").textContent = state.mine ? label(byId[state.mine]) : "None yet";
+  const picks = ALL.filter((o) => state.mine[o.id]).map((o) => `${o.id === "keep" ? "Keep current" : "#" + Number(o.id)} ×${state.mine[o.id]}`);
+  $("#myvote").textContent = picks.length ? picks.join(", ") : "None yet";
 
   const rows = [...ALL].sort((a, b) => (state.counts[b.id] || 0) - (state.counts[a.id] || 0) || ALL.indexOf(a) - ALL.indexOf(b));
   const max = Math.max(1, ...rows.map((o) => state.counts[o.id] || 0));
   $("#results").innerHTML = rows.map((o, i) => {
     const n = state.counts[o.id] || 0;
+    const m = state.mine[o.id] || 0;
     const pct = state.total ? Math.round((n / state.total) * 100) : 0;
-    return `<tr class="${state.mine === o.id ? "mine" : ""}">
+    return `<tr class="${m ? "mine" : ""}">
       <td class="rank">${i + 1}</td>
       <td class="mark"><img src="logos/${o.id}_53.png" alt="" width="34" height="34"></td>
-      <td>${label(o)}${state.mine === o.id ? '<span class="tag">YOUR VOTE</span>' : ""}</td>
+      <td>${label(o)}${m ? `<span class="tag">YOU ×${m}</span>` : ""}</td>
       <td class="setname">${setTitle[o.set]}</td>
       <td class="votes">${n}</td>
       <td class="share"><div class="bar"><i style="width:${(n / max) * 100}%"></i><span>${pct}%</span></div></td>
@@ -243,7 +256,8 @@ function notice(text) {
 
 render();
 
-// Each browser keeps a random voter id; voting again just moves that vote.
+// Each browser keeps a random voter id. The server also matches the same PC
+// across browsers by screen size, time zone and CPU cores on the same network.
 function voterId() {
   try {
     let id = localStorage.getItem("void-voter");
@@ -257,18 +271,28 @@ function voterId() {
   }
 }
 const voter = voterId();
+const fp = {
+  sw: Math.max(screen.width, screen.height),
+  sh: Math.min(screen.width, screen.height),
+  cd: screen.colorDepth,
+  hc: navigator.hardwareConcurrency || 0,
+  tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+};
 
 function apply(data) {
-  Object.assign(state, { counts: data.counts || {}, total: data.total || 0, live: true });
-  if (!state.busy) state.mine = data.mine;
+  Object.assign(state, {
+    counts: data.counts || {}, total: data.total || 0, voters: data.voters || 0,
+    mine: data.mine || {}, left: data.left ?? 3, per: data.perBallot || 3, live: true,
+  });
   setConn("Voting open", true);
-  notice("");
   render();
 }
 
 async function refresh() {
+  if (state.busy) return;
   try {
-    const r = await fetch(`${API_BASE}/api/votes?voter=${encodeURIComponent(voter)}`, { cache: "no-store" });
+    const q = new URLSearchParams({ voter, fp: JSON.stringify(fp) });
+    const r = await fetch(`${API_BASE}/api/votes?${q}`, { cache: "no-store" });
     if (!r.ok) throw new Error(r.status);
     apply(await r.json());
   } catch (e) {
@@ -280,27 +304,25 @@ async function refresh() {
   }
 }
 
-async function vote(id) {
-  if (!state.live || state.busy || state.mine === id) return;
-  const prev = state.mine;
+async function vote(id, delta) {
+  if (!state.live || state.busy) return;
   state.busy = true;
-  state.mine = id;
   render();
   try {
     const r = await fetch(`${API_BASE}/api/vote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ voter, choice: id }),
+      body: JSON.stringify({ voter, fp, choice: id, delta }),
     });
     const data = await r.json();
-    if (!r.ok) throw new Error(data.error || r.status);
+    if (!r.ok) throw new Error(data.error || `Error ${r.status}`);
+    notice("");
     state.busy = false;
     apply(data);
   } catch (e) {
     console.error(e);
     state.busy = false;
-    state.mine = prev;
-    notice(`Your vote didn't save (${e.message}). Try again in a moment.`);
+    notice(e.message);
     render();
   }
 }
