@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VOID Guild Mark Vote</title>
+<meta name="description" content="Vote for the new VOID guild mark in Cabal Online.">
+<link rel="icon" href="logos/keep_53.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  /* Layout: one narrow column of sections; each set is a responsive grid of ballot cards, results table last. */
+  :root {
+    --void: #05060d;
+    --panel: #0c0f1f;
+    --panel-2: #121734;
+    --line: #1f2550;
+    --text: #e9ebf8;
+    --muted: #8d93b8;
+    --accent: #8c9bff;
+    --accent-ink: #05060d;
+    --good: #57e39a;
+    --warn: #ffb547;
+    --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+    --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--void); }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 600px at 70% -10%, #161c4a 0%, transparent 60%),
+      var(--void);
+    color: var(--text);
+    font: 15px/1.55 var(--body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: max(28px, env(safe-area-inset-top, 0px)) 64px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 44px; }
+  img { max-width: 100%; display: block; }
+
+  header { display: grid; gap: 14px; }
+  .eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); display: flex; gap: 10px; align-items: center; }
+  .eyebrow img { width: 22px; height: 22px; image-rendering: pixelated; }
+  h1 { font: 700 clamp(30px, 5vw, 48px)/1.05 var(--display); margin: 0; letter-spacing: .01em; text-wrap: balance; }
+  .lede { margin: 0; color: var(--muted); max-width: 62ch; }
+
+  .status {
+    display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center;
+    padding: 14px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+  }
+  .status .k { font: 500 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 5px; }
+  .status .v { font-weight: 600; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); margin-right: 8px; vertical-align: 1px; }
+  .dot.live { background: var(--good); box-shadow: 0 0 10px var(--good); }
+  .status .spacer { flex: 1; }
+  .notice { margin: 0; padding: 12px 16px; border-radius: 10px; border: 1px solid #5a4317; background: #1d1608; color: #ffd38a; }
+
+  #sets { display: grid; gap: 44px; }
+  section { display: grid; gap: 16px; }
+  .sec-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+  h2 { font: 700 22px/1.2 var(--display); margin: 0; }
+  .sec-head p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 14px; }
+  .card {
+    position: relative; display: grid; gap: 10px; padding: 10px 10px 12px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    color: inherit; font: inherit; text-align: left; cursor: pointer;
+    transition: border-color .15s, transform .15s, background .15s;
+  }
+  .card:hover:not(:disabled) { border-color: #3a438a; transform: translateY(-2px); }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .card:disabled { cursor: not-allowed; }
+  .card .art { position: relative; }
+  .card .art .big { width: 100%; height: auto; aspect-ratio: 1; border-radius: 10px; }
+  .card .art .real {
+    position: absolute; right: 6px; bottom: 6px; width: 53px; height: 53px;
+    border-radius: 5px; box-shadow: 0 0 0 3px var(--panel), 0 4px 14px #000a;
+  }
+  .card .meta { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .card .name { font-weight: 600; font-size: 14px; line-height: 1.25; min-width: 0; }
+  .card .num { font: 500 12px/1 var(--mono); color: var(--muted); display: block; margin-bottom: 3px; }
+  .card .count { font: 500 13px/1 var(--mono); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .card .pick {
+    display: block; text-align: center; padding: 8px; border-radius: 8px;
+    border: 1px solid var(--line); font: 600 13px/1 var(--body); color: var(--text); background: var(--panel-2);
+  }
+  .card.mine { border-color: var(--accent); background: #12173a; box-shadow: 0 0 0 1px var(--accent), 0 0 28px #8c9bff33; }
+  .card.mine .pick { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+  .keep { grid-template-columns: 150px 1fr; align-items: center; gap: 18px; padding: 12px; max-width: 560px; }
+  .keep .art .big { width: 150px; }
+  .keep .side { display: grid; gap: 10px; }
+  .keep .name { font: 700 18px/1.2 var(--display); }
+
+  .table-box { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+  table { width: 100%; border-collapse: collapse; min-width: 520px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font: 500 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); background: var(--panel-2); position: sticky; top: 0; }
+  tr:last-child td { border-bottom: 0; }
+  td.rank { font: 500 13px/1 var(--mono); color: var(--muted); width: 48px; }
+  td.mark img { width: 34px; height: 34px; border-radius: 4px; }
+  td.votes { font: 500 14px/1 var(--mono); text-align: right; width: 70px; }
+  td.share { width: 38%; }
+  .bar { display: flex; align-items: center; gap: 10px; }
+  .bar i { display: block; height: 8px; border-radius: 4px; background: var(--accent); min-width: 2px; }
+  .bar span { font: 500 12px/1 var(--mono); color: var(--muted); }
+  tr.mine td { background: #12173a; }
+  .tag { font: 500 11px/1 var(--mono); color: var(--accent); margin-left: 8px; letter-spacing: .06em; }
+  .setname { color: var(--muted); font-size: 13px; }
+
+  footer { color: var(--muted); font-size: 13px; }
+
+  @media (max-width: 520px) {
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .keep { grid-template-columns: 110px 1fr; }
+    .keep .art .big { width: 110px; }
+    .card .art .real { width: 40px; height: 40px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover:not(:disabled) { transform: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow"><img src="logos/keep_53.png" alt="">VOID · Cabal Online guild vote</div>
+    <h1>Choose our new guild mark</h1>
+    <p class="lede">Pick one logo, or vote to keep the current one. You get one vote and can change it any time. The small icon in each corner is the real 53&nbsp;px size you'll see in game.</p>
+    <div class="status" aria-live="polite">
+      <div><span class="k">Status</span><span class="v" id="conn"><span class="dot"></span>Connecting…</span></div>
+      <div><span class="k">Your vote</span><span class="v" id="myvote">None yet</span></div>
+      <div class="spacer"></div>
+      <div><span class="k">Total votes</span><span class="v" id="total">0</span></div>
+    </div>
+    <p class="notice" id="notice" hidden></p>
+  </header>
+
+  <section id="current">
+    <div class="sec-head"><h2>Current logo</h2><p>Happy with what we have? Vote for this.</p></div>
+  </section>
+
+  <div id="sets"></div>
+
+  <section>
+    <div class="sec-head"><h2>Results</h2><p>Updates live as people vote.</p></div>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>#</th><th>Mark</th><th>Logo</th><th>Set</th><th style="text-align:right">Votes</th><th>Share</th></tr></thead>
+        <tbody id="results"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>One vote per browser. Clicking another logo moves your vote to it.</footer>
+</div>
+
+<script type="module">
+import { SETS, KEEP, LOGOS, ALL } from "./logos.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const $ = (s) => document.querySelector(s);
+const state = { counts: {}, total: 0, mine: null, uid: null, live: false, busy: false };
+const setTitle = Object.fromEntries(SETS.map((s) => [s.key, s.title]));
+setTitle.current = "Current";
+const label = (o) => (o.id === "keep" ? o.name : `#${Number(o.id)} ${o.name}`);
+const byId = Object.fromEntries(ALL.map((o) => [o.id, o]));
+
+function card(o, extra = "") {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "card " + extra;
+  b.id = "opt-" + o.id;
+  b.dataset.id = o.id;
+  b.disabled = true;
+  b.innerHTML = `
+    <div class="art">
+      <img class="big" src="logos/${o.id}.png" alt="" loading="lazy" width="320" height="320">
+      <img class="real" src="logos/${o.id}_53.png" alt="" width="53" height="53" title="Real in-game size">
+    </div>
+    <div class="side">
+      <div class="meta">
+        <div class="name"><span class="num">${o.id === "keep" ? "Current" : "#" + Number(o.id)}</span>${o.name}</div>
+        <span class="count" data-count>0</span>
+      </div>
+      <span class="pick" data-pick>Vote</span>
+    </div>`;
+  b.setAttribute("aria-label", `Vote for ${label(o)}`);
+  b.addEventListener("click", () => vote(o.id));
+  return b;
+}
+
+$("#current").append(card(KEEP, "keep"));
+for (const s of SETS) {
+  const sec = document.createElement("section");
+  sec.innerHTML = `<div class="sec-head"><h2>${s.title}</h2><p>${s.note}</p></div><div class="grid"></div>`;
+  LOGOS.filter((l) => l.set === s.key).forEach((l) => sec.querySelector(".grid").append(card(l)));
+  $("#sets").append(sec);
+}
+
+function render() {
+  for (const o of ALL) {
+    const el = document.getElementById("opt-" + o.id);
+    const n = state.counts[o.id] || 0;
+    el.querySelector("[data-count]").textContent = n === 1 ? "1 vote" : `${n} votes`;
+    const mine = state.mine === o.id;
+    el.classList.toggle("mine", mine);
+    el.querySelector("[data-pick]").textContent = mine ? "Your vote" : "Vote";
+    el.disabled = !state.live || state.busy;
+    el.setAttribute("aria-pressed", mine ? "true" : "false");
+  }
+  $("#total").textContent = state.total;
+  $("#myvote").textContent = state.mine ? label(byId[state.mine]) : "None yet";
+
+  const rows = [...ALL].sort((a, b) => (state.counts[b.id] || 0) - (state.counts[a.id] || 0) || ALL.indexOf(a) - ALL.indexOf(b));
+  const max = Math.max(1, ...rows.map((o) => state.counts[o.id] || 0));
+  $("#results").innerHTML = rows.map((o, i) => {
+    const n = state.counts[o.id] || 0;
+    const pct = state.total ? Math.round((n / state.total) * 100) : 0;
+    return `<tr class="${state.mine === o.id ? "mine" : ""}">
+      <td class="rank">${i + 1}</td>
+      <td class="mark"><img src="logos/${o.id}_53.png" alt="" width="34" height="34"></td>
+      <td>${label(o)}${state.mine === o.id ? '<span class="tag">YOUR VOTE</span>' : ""}</td>
+      <td class="setname">${setTitle[o.set]}</td>
+      <td class="votes">${n}</td>
+      <td class="share"><div class="bar"><i style="width:${(n / max) * 100}%"></i><span>${pct}%</span></div></td>
+    </tr>`;
+  }).join("");
+}
+
+function setConn(text, live) {
+  $("#conn").innerHTML = `<span class="dot${live ? " live" : ""}"></span>${text}`;
+}
+function notice(text) {
+  const n = $("#notice");
+  n.hidden = !text;
+  n.textContent = text || "";
+}
+
+let vote = async () => {};
+render();
+
+if (!firebaseConfig) {
+  setConn("Voting not open yet", false);
+  notice("Voting opens as soon as the vote counter is connected. You can look through the logos in the meantime.");
+} else {
+  start().catch((e) => {
+    console.error(e);
+    setConn("Offline", false);
+    notice("Couldn't reach the vote counter. Check your connection and reload the page.");
+  });
+}
+
+async function start() {
+  const V = "10.12.2";
+  const [{ initializeApp }, auth, fs] = await Promise.all([
+    import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`),
+    import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`),
+    import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`),
+  ]);
+  const app = initializeApp(firebaseConfig);
+  const a = auth.getAuth(app);
+  const db = fs.getFirestore(app);
+
+  await auth.signInAnonymously(a);
+  const uid = await new Promise((res) => auth.onAuthStateChanged(a, (u) => u && res(u.uid)));
+  state.uid = uid;
+
+  fs.onSnapshot(fs.collection(db, "votes"), (snap) => {
+    const counts = {};
+    let total = 0;
+    let mine = null;
+    snap.forEach((d) => {
+      const c = d.data().choice;
+      if (!byId[c]) return;
+      counts[c] = (counts[c] || 0) + 1;
+      total++;
+      if (d.id === uid) mine = c;
+    });
+    Object.assign(state, { counts, total, live: true });
+    if (!state.busy) state.mine = mine;
+    setConn("Voting open", true);
+    notice("");
+    render();
+  }, (err) => {
+    console.error(err);
+    setConn("Offline", false);
+    notice("Lost the connection to the vote counter. Reload the page to try again.");
+  });
+
+  vote = async (id) => {
+    if (!state.live || state.busy || state.mine === id) return;
+    const prev = state.mine;
+    state.busy = true;
+    state.mine = id;
+    render();
+    try {
+      await fs.setDoc(fs.doc(db, "votes", uid), { choice: id, updatedAt: fs.serverTimestamp() });
+    } catch (e) {
+      console.error(e);
+      state.mine = prev;
+      notice("Your vote didn't save. Reload the page and try again.");
+    } finally {
+      state.busy = false;
+      render();
+    }
+  };
+}
+</script>
+</body>
+</html>
