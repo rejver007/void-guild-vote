@@ -299,7 +299,7 @@ async function refresh() {
     console.error(e);
     state.live = false;
     setConn("Offline", false);
-    notice("Couldn't reach the vote counter. It will keep retrying; you can also reload the page.");
+    notice("Couldn't reach the vote counter. Your network, ad blocker or VPN may be blocking it: try turning off the ad blocker or VPN for this page, or switch to mobile data. The page keeps retrying on its own.");
     render();
   }
 }
