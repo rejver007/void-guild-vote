@@ -167,7 +167,7 @@
 
 <script type="module">
 import { SETS, KEEP, LOGOS, ALL } from "./logos.js";
-import { API_BASE } from "./api-config.js";
+import { API_BASES } from "./api-config.js";
 
 const $ = (s) => document.querySelector(s);
 const state = { counts: {}, total: 0, voters: 0, mine: {}, left: 3, per: 3, live: false, busy: false };
@@ -288,20 +288,37 @@ function apply(data) {
   render();
 }
 
+// The counter answers on several addresses because some internet providers
+// block one of them. Use the last one that worked, and move to the next on failure.
+let host = 0;
+try {
+  host = Math.max(0, API_BASES.indexOf(localStorage.getItem("void-api")));
+} catch {}
+const API_BASE = () => API_BASES[host];
+const timeout = () => (AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined);
+
 async function refresh() {
   if (state.busy) return;
-  try {
-    const q = new URLSearchParams({ voter, fp: JSON.stringify(fp) });
-    const r = await fetch(`${API_BASE}/api/votes?${q}`, { cache: "no-store" });
-    if (!r.ok) throw new Error(r.status);
-    apply(await r.json());
-  } catch (e) {
-    console.error(e);
-    state.live = false;
-    setConn("Offline", false);
-    notice("Couldn't reach the vote counter. Your network, ad blocker or VPN may be blocking it: try turning off the ad blocker or VPN for this page, or switch to mobile data. The page keeps retrying on its own.");
-    render();
+  const q = new URLSearchParams({ voter, fp: JSON.stringify(fp) });
+  for (let tries = 0; tries < API_BASES.length; tries++) {
+    try {
+      const r = await fetch(`${API_BASE()}/api/votes?${q}`, { cache: "no-store", signal: timeout() });
+      if (!r.ok) throw new Error(r.status);
+      apply(await r.json());
+      notice("");
+      try {
+        localStorage.setItem("void-api", API_BASE());
+      } catch {}
+      return;
+    } catch (e) {
+      console.error(API_BASE(), e);
+      host = (host + 1) % API_BASES.length;
+    }
   }
+  state.live = false;
+  setConn("Offline", false);
+  notice("Couldn't reach the vote counter. Your network, ad blocker or VPN may be blocking it: try turning off the ad blocker or VPN for this page, or switch to mobile data. The page keeps retrying on its own.");
+  render();
 }
 
 async function vote(id, delta) {
@@ -309,7 +326,7 @@ async function vote(id, delta) {
   state.busy = true;
   render();
   try {
-    const r = await fetch(`${API_BASE}/api/vote`, {
+    const r = await fetch(`${API_BASE()}/api/vote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ voter, fp, choice: id, delta }),
